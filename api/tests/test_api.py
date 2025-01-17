@@ -79,11 +79,18 @@ def test_load_model_valid():
 def test_predict_without_model(test_data):
     """Test de prédiction sans modèle chargé"""
     # S'assurer qu'aucun modèle n'est chargé
-    requests.post(f"{BASE_URL}/unload_model")
+    response = requests.post(f"{BASE_URL}/unload_model")
+    assert response.status_code == 200
     
+    # Vérifier que le modèle est bien déchargé via /health
+    health_response = requests.get(f"{BASE_URL}/health")
+    assert health_response.status_code == 200
+    assert health_response.json()["model_loaded"] == False
+    
+    # Tenter une prédiction sans modèle
     response = requests.post(f"{BASE_URL}/predict", json=test_data)
     assert response.status_code == 400
-    assert "aucun modèle" in response.json()["detail"].lower()
+    assert "Aucun modèle n'est chargé" in response.json()["detail"]
 
 def test_predict_with_invalid_features():
     """Test de prédiction avec des features invalides"""
