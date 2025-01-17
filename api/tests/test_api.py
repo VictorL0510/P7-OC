@@ -5,8 +5,11 @@ import numpy as np
 import pickle
 import os
 
+# URL de base de l'API - utiliser une variable d'environnement avec fallback
+BASE_URL = os.getenv('API_URL', 'http://localhost:8000')
+
 # URL de base de l'API
-BASE_URL = "http://localhost:8000"  # Le port externe sur lequel le container est mappé
+# BASE_URL = "http://localhost:8000"  # Le port externe sur lequel le container est mappé
 
 def get_model_features():
     """Récupères la liste des features attendues par le modèle"""

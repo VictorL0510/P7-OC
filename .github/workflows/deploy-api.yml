@@ -14,29 +14,12 @@ env:
   SERVICE_NAME: credit-scoring-api
 
 jobs:
-  test-and-deploy:
+  deploy-and-test:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: |
-          cd api
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
-
-      - name: Run tests
-        run: |
-          cd api
-          pytest tests/ -v --cov=./ --cov-report=xml
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
@@ -55,9 +38,30 @@ jobs:
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/api:${{ github.sha }}
 
       - name: Deploy to Cloud Run
+        id: deploy
         uses: google-github-actions/deploy-cloudrun@v1
         with:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.REGION }}
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/api:${{ github.sha }}
           flags: '--allow-unauthenticated'
+
+      - name: Set up Python for tests
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install test dependencies
+        run: |
+          cd api
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Run tests against deployed API
+        env:
+          API_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          cd api
+          echo "Testing against API URL: $API_URL"
+          pytest tests/ -v --cov=./ --cov-report=xml
