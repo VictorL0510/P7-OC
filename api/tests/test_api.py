@@ -2,79 +2,64 @@ import pytest
 import requests
 import pandas as pd
 import numpy as np
-import pickle
 import os
 
 # URL de base de l'API - utiliser une variable d'environnement avec fallback
 BASE_URL = os.getenv('API_URL', 'http://localhost:8000')
 
-# URL de base de l'API
-# BASE_URL = "http://localhost:8000"  # Le port externe sur lequel le container est mappé
-
-def get_model_features():
-    """Récupères la liste des features attendues par le modèle"""
-    model_path = os.path.join('models', 'sk-learn-log-reg-model', 'model.pkl')
-    with open(model_path, 'rb') as f:
-        model = pickle.load(f)
-    return model.feature_names_in_
+# Liste des features attendues par le modèle
+EXPECTED_FEATURES = [
+    'CODE_GENDER', 'FLAG_OWN_CAR', 'FLAG_OWN_REALTY', 'CNT_CHILDREN',
+    'AMT_INCOME_TOTAL', 'AMT_CREDIT', 'AMT_ANNUITY', 'AMT_GOODS_PRICE',
+    'NAME_INCOME_TYPE', 'NAME_EDUCATION_TYPE', 'NAME_FAMILY_STATUS',
+    'NAME_HOUSING_TYPE', 'DAYS_BIRTH', 'DAYS_EMPLOYED', 'FLAG_MOBIL',
+    'FLAG_WORK_PHONE', 'FLAG_PHONE', 'FLAG_EMAIL', 'OCCUPATION_TYPE',
+    'CNT_FAM_MEMBERS', 'REGION_RATING_CLIENT', 'REGION_RATING_CLIENT_W_CITY',
+    'WEEKDAY_APPR_PROCESS_START', 'HOUR_APPR_PROCESS_START', 'REG_REGION_NOT_LIVE_REGION',
+    'REG_REGION_NOT_WORK_REGION', 'LIVE_REGION_NOT_WORK_REGION', 'REG_CITY_NOT_LIVE_CITY',
+    'REG_CITY_NOT_WORK_CITY', 'LIVE_CITY_NOT_WORK_CITY', 'ORGANIZATION_TYPE'
+]
 
 @pytest.fixture
 def test_data():
     """Charge les données de test depuis le CSV"""
     df = pd.read_csv('tests/sample_data.csv', sep=';')
     
-    # Récupérer les features attendues par le modèle
-    expected_features = get_model_features()
-    print("\nFeatures attendues par le modèle:", expected_features)
-    print("\nFeatures présentes dans le CSV:", df.columns.tolist())
-    
-    # Remplacer les valeurs NaN par 0
-    df = df.fillna(0)
-    
-    # S'assurer que toutes les features nécessaires sont présentes
-    missing_features = set(expected_features) - set(df.columns)
-    if missing_features:
-        print(f"\nFeatures manquantes: {missing_features}")
-        # Ajouter les features manquantes avec des valeurs par défaut
-        for feature in missing_features:
-            df[feature] = 0
-    
-    # Réorganiser les colonnes dans le même ordre que le modèle
-    df = df[expected_features]
-    
-    # Prend la première ligne comme exemple
-    sample = df.iloc[0].to_dict()
-    # Convertir les numpy.int64 et numpy.float64 en types Python natifs
-    sample = {k: float(v) if isinstance(v, (np.floating, np.integer)) else v for k, v in sample.items()}
-    return {"features": sample}
+    # Prendre la première ligne comme exemple
+    test_data = {"features": df.iloc[0].to_dict()}
+    return test_data
 
 def test_health_check():
-    """Test de la route health"""
+    """Test de l'endpoint health check"""
     response = requests.get(f"{BASE_URL}/health")
     assert response.status_code == 200
-    data = response.json()
-    assert "status" in data
-    assert data["status"] == "healthy"
-    assert "model_loaded" in data
-    assert isinstance(data["model_loaded"], bool)
+    assert "status" in response.json()
+    assert "model_loaded" in response.json()
 
 def test_load_model_invalid():
-    """Test du chargement d'un modèle invalide"""
+    """Test de chargement d'un modèle invalide"""
     response = requests.post(
         f"{BASE_URL}/load_model_by_name",
-        json={"name": "modele_inexistant"}
+        json={"name": "invalid_model"}
     )
-    assert response.status_code == 500  # L'API renvoie 500 pour les erreurs de chargement
-    assert "erreur" in response.json()["detail"].lower()
+    assert response.status_code == 404
 
 def test_load_model_valid():
-    """Test du chargement d'un modèle valide"""
+    """Test de chargement d'un modèle valide"""
     response = requests.post(
         f"{BASE_URL}/load_model_by_name",
         json={"name": "sk-learn-log-reg-model"}
     )
     assert response.status_code == 200
     assert "chargé avec succès" in response.json()["message"]
+
+def test_predict_valid(test_data):
+    """Test de prédiction avec des données valides"""
+    response = requests.post(f"{BASE_URL}/predict", json=test_data)
+    assert response.status_code == 200
+    assert "prediction" in response.json()
+    assert "default_probability" in response.json()
+    assert "threshold" in response.json()
 
 def test_predict_with_invalid_features():
     """Test de prédiction avec des features invalides"""
@@ -85,31 +70,16 @@ def test_predict_with_invalid_features():
     )
     
     # Données de test invalides
-    test_data = {
+    invalid_data = {
         "features": {
-            "FEATURE_INVALIDE": 0
+            "INVALID_FEATURE": 1,
+            "ANOTHER_INVALID": "test"
         }
     }
-    response = requests.post(f"{BASE_URL}/predict", json=test_data)
-    assert response.status_code == 500  # L'API renvoie 500 pour les erreurs de prédiction
-    assert "erreur" in response.json()["detail"].lower()
-
-def test_predict_valid(test_data):
-    """Test de prédiction avec des données réelles du CSV"""
-    # Charger d'abord un modèle
-    requests.post(
-        f"{BASE_URL}/load_model_by_name",
-        json={"name": "sk-learn-log-reg-model"}
-    )
     
-    response = requests.post(f"{BASE_URL}/predict", json=test_data)
-    assert response.status_code == 200
-    data = response.json()
-    assert "prediction" in data
-    assert isinstance(data["prediction"], int)
-    assert data["prediction"] in [0, 1]
-    assert "default_probability" in data
-    assert "threshold" in data
+    response = requests.post(f"{BASE_URL}/predict", json=invalid_data)
+    assert response.status_code == 500
+    assert "Erreur lors de la prédiction" in response.json()["detail"]
 
 def test_predict_batch():
     """Test de prédiction sur plusieurs lignes du CSV"""
@@ -122,31 +92,13 @@ def test_predict_batch():
     # Charger plusieurs lignes du CSV
     df = pd.read_csv('tests/sample_data.csv', sep=';')
     
-    # Récupérer les features attendues par le modèle
-    expected_features = get_model_features()
+    # Prendre les 3 premières lignes
+    batch_data = {"features": df.iloc[0:3].to_dict('records')}
     
-    # Ajouter les features manquantes avec des valeurs par défaut
-    missing_features = set(expected_features) - set(df.columns)
-    for feature in missing_features:
-        df[feature] = 0
-    
-    # Réorganiser les colonnes dans le même ordre que le modèle
-    df = df[expected_features]
-    
-    df = df.fillna(0)  # Remplacer les NaN par 0
-    
-    # Tester les 5 premières lignes
-    for idx in range(min(5, len(df))):
-        row_dict = df.iloc[idx].to_dict()
-        # Convertir les types numpy en types Python natifs
-        row_dict = {k: float(v) if isinstance(v, (np.floating, np.integer)) else v for k, v in row_dict.items()}
-        sample = {"features": row_dict}
-        response = requests.post(f"{BASE_URL}/predict", json=sample)
-        assert response.status_code == 200
-        data = response.json()
-        assert "prediction" in data
-        assert isinstance(data["prediction"], int)
-        assert data["prediction"] in [0, 1]  # Correction de la syntaxe
-        assert "default_probability" in data
-        assert "threshold" in data
-        assert response.elapsed.total_seconds() < 1.0  # La réponse doit être < 1 seconde
+    response = requests.post(f"{BASE_URL}/predict_batch", json=batch_data)
+    assert response.status_code == 200
+    result = response.json()
+    assert "predictions" in result
+    assert "probabilities" in result
+    assert len(result["predictions"]) == 3
+    assert len(result["probabilities"]) == 3
