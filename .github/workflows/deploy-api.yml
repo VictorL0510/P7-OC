@@ -54,26 +54,12 @@ jobs:
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/api:${{ github.sha }}
           flags: '--allow-unauthenticated'
 
-      - name: Set up Python for tests
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install test dependencies
-        run: |
-          cd api
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov
-
       - name: Run tests against deployed API
         env:
           API_URL: ${{ steps.deploy.outputs.url }}
         run: |
+          # Installer uniquement les dépendances nécessaires pour les tests
+          pip install requests pytest
           cd api
           echo "Testing against API URL: $API_URL"
-          echo "Current directory contents:"
-          ls -la
-          echo "Tests directory contents:"
-          ls -la tests/
-          pytest tests/ -v --cov=./ --cov-report=xml
+          pytest tests/ -v
