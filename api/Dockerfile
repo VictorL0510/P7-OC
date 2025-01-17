@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copier les fichiers de l'API et les tests
 COPY api/api.py .
 COPY api/tests/ ./tests/
+COPY api/tests/sample_data.csv ./tests/
 
 # Créer le dossier models et copier son contenu
 COPY api/models/ ./models/

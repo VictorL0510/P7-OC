@@ -72,4 +72,8 @@ jobs:
         run: |
           cd api
           echo "Testing against API URL: $API_URL"
+          echo "Current directory contents:"
+          ls -la
+          echo "Tests directory contents:"
+          ls -la tests/
           pytest tests/ -v --cov=./ --cov-report=xml
