@@ -40,20 +40,6 @@ jobs:
           # Nettoyer
           rm /tmp/key.json
 
-      - name: Create Artifact Registry Repository
-        run: |
-          # Vérifier si le repository existe déjà
-          if ! gcloud artifacts repositories describe ${{ env.REPOSITORY }} \
-            --project=${{ env.PROJECT_ID }} \
-            --location=${{ env.REGION }} 2>/dev/null; then
-            # Créer le repository s'il n'existe pas
-            gcloud artifacts repositories create ${{ env.REPOSITORY }} \
-              --project=${{ env.PROJECT_ID }} \
-              --repository-format=docker \
-              --location=${{ env.REGION }} \
-              --description="Repository for ${{ env.SERVICE_NAME }}"
-          fi
-
       - name: Configure Docker for Artifact Registry
         run: |
           gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
