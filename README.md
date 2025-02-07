@@ -19,10 +19,11 @@ Le projet est organisé en plusieurs phases :
    - Déploiement sur Google Cloud Run
    - Tests unitaires et intégration continue
 
-3. **Phase 3 : Dashboard Streamlit** (à venir)
-   - Interface utilisateur interactive
-   - Visualisation des prédictions
-   - Explications des décisions du modèle
+3. **Phase 3 : Dashboard Streamlit**
+   - Interface utilisateur interactive pour la consultation des prédictions
+   - Sélection du client et affichage de son score de crédit
+   - Visualisation des résultats avec graphiques interactifs
+   - Déploiement sur le Cloud
 
 ## Structure du Code
 
@@ -30,6 +31,10 @@ Le projet est organisé en plusieurs phases :
   - `api.py` : Code principal de l'API
   - `Dockerfile` : Configuration pour la conteneurisation de l'API
   - `requirements.txt` : Dépendances Python pour l'API
+
+- `streamlit/` : Application dashboard Streamlit
+  - `app.py` : Code principal du dashboard
+  - `requirements.txt` : Dépendances Python pour le dashboard
 
 - `models/` : Contient les modèles entraînés et leurs seuils
 - `notebooks/` : Notebooks Jupyter pour l'analyse et l'entraînement des modèles
@@ -95,6 +100,17 @@ L'API peut être déployée sur Google Cloud Run :
 gcloud run deploy api --image europe-west1-docker.pkg.dev/[PROJECT_ID]/credit-scoring/api:latest --region europe-west1 --platform managed --allow-unauthenticated
 ```
 
+### Dashboard Streamlit
+
+Pour lancer le dashboard en local :
+```bash
+cd streamlit
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+Le dashboard sera accessible sur http://localhost:8501
+
 ## Technologies Utilisées
 - Python
 - Pandas, NumPy
@@ -102,6 +118,7 @@ gcloud run deploy api --image europe-west1-docker.pkg.dev/[PROJECT_ID]/credit-sc
 - MLflow
 - Jupyter Notebook
 - FastAPI
+- Streamlit
 - Docker
 - Google Cloud Run
 - Scikit-learn
